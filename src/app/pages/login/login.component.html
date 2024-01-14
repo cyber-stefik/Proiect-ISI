@@ -1,0 +1,14 @@
+<!-- login.component.html -->
+<form [formGroup]="loginForm" (ngSubmit)="login()">
+    <!-- Your form fields go here -->
+    <label for="email">Email:</label>
+    <input type="email" id="email" formControlName="email">
+
+    <label for="password">Password:</label>
+    <input type="password" id="password" formControlName="password">
+    <button type="submit">Login</button>
+</form>
+
+<div *ngIf="errorMessage" class="error-message">
+    {{ errorMessage }}
+</div>
