@@ -33,7 +33,7 @@ import Expand from '@arcgis/core/widgets/Expand';
 
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Graphic from '@arcgis/core/Graphic';
-import Point from '@arcgis/core/geometry/Point';
+
 
 import FeatureLayer from '@arcgis/core/layers/FeatureLayer';
 
@@ -44,6 +44,12 @@ import * as route from "@arcgis/core/rest/route.js";
 import * as locator from "@arcgis/core/rest/locator.js";
 import Track from "@arcgis/core/widgets/Track";
 import Locate from "@arcgis/core/widgets/Locate";
+
+import {Observable, Subscription} from "rxjs";
+import { FirebaseService,
+  Location } from "src/app/services/database/firebase";
+import Point from '@arcgis/core/geometry/Point';
+import {exitCodeFromResult} from "@angular/compiler-cli";
 
 
 @Component({
@@ -75,7 +81,18 @@ export class EsriMapComponent implements OnInit, OnDestroy {
     count: number = 0;
     timeoutHandler = null;
 
-    constructor() { }
+
+    // firebase sync
+    isConnected: boolean = false;
+    subscriptionList: Subscription;
+    subscriptionObj: Subscription;
+
+    constructor(
+      private fbs: FirebaseService
+      //private fbs: FirebaseMockService
+    ) { }
+
+    //constructor() { }
 
     clearRouteAndGraphics() {
         if (this.view) {
@@ -149,6 +166,14 @@ export class EsriMapComponent implements OnInit, OnDestroy {
                 useHeadingEnabled: false
             });
             this.view.ui.add(locate, "top-left");
+            this.fbs.connectToDatabase();
+            this.fbs.getData().subscribe((items: Location[]) =>{
+                console.log("got new items from list: ", items);
+                //this.graphicsLayer.removeAll();
+                for (let item of items) {
+                    this.addTrailhead(item);
+                }
+            });
 
             return this.view;
         } catch (error) {
@@ -170,6 +195,33 @@ export class EsriMapComponent implements OnInit, OnDestroy {
         });
 
     }
+
+  addTrailhead(location: Location) {
+        const point = new Point({
+          longitude: location.coordinates[0].longitude,
+          latitude: location.coordinates[0].latitude
+        });
+
+        const trailheadGraphic = new Graphic({
+          geometry: point,
+          symbol:  {
+            type: "picture-marker",
+            size: "12px",
+            url: "https://static.arcgis.com/icons/places/Swimming_Pool_15.svg",
+            width: "18px",
+            height: "18px"
+          } as any,
+          attributes: {
+            Name: location.id // You can customize this based on your trailhead data structure
+          },
+          popupTemplate: {
+            title: location.id,
+            content: "Trailhead located at Lat: {latitude}, Lon: {longitude}"
+          }
+        });
+        this.view.graphics.add(trailheadGraphic);
+        //this.graphicsLayer.add(trailheadGraphic);
+  }
 
     showResults(results: any[]) {
         this.view.popup.close();
@@ -203,6 +255,8 @@ export class EsriMapComponent implements OnInit, OnDestroy {
             });
         }
     }
+
+
 
 
 
