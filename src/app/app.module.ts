@@ -34,7 +34,8 @@ import { DashboardComponent } from './pages/dashboard/dashboard.component';
     AngularFireAuthModule,
     AppRoutingModule,
   ],
-  providers: [],
+  providers: [FirebaseService,
+    FirebaseMockService],
   bootstrap: [AppComponent],
 })
 export class AppModule {}
