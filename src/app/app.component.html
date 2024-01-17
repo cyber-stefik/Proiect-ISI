@@ -1,8 +1,8 @@
 <nav class="navbar navbar-fixed-top navbar-dark bg-inverse">
   <div class="container">
-    <a class="navbar-brand">Angular Router</a>
+    <a class="navbar-brand">Bazine in Bucuresti</a>
     <ul class="nav navbar-nav" routerLinkActive="active">
-      <li class="nav-item"><a class="nav-link" routerLink="home">Home</a></li>
+      <li *ngIf="isAuthenticated" class="nav-item"><a class="nav-link" routerLink="home">Home</a></li>
       <li class="nav-item"><a class="nav-link" routerLink="map">Map</a></li>
 
       <!-- Display these buttons if the user is unauthenticated -->
@@ -11,7 +11,7 @@
 
       <!-- Display these buttons if the user is authenticated -->
       <li *ngIf="isAuthenticated" class="nav-item"><a class="nav-link" routerLink="dashboard">Dashboard</a></li>
-      <li *ngIf="isAuthenticated" class="nav-item"><button class="btn btn-logout" (click)="logout()">Logout</button></li>
+      <li *ngIf="isAuthenticated" class="nav-item"><button class="btn btn-logout" (click)="logout()" class="button-3">Logout</button></li>
     </ul>
   </div>
 </nav>

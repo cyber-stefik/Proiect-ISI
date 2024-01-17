@@ -15,6 +15,9 @@ import { EsriMapComponent } from './pages/esri-map/esri-map.component';
 import { LoginComponent } from './pages/login/login.component';
 import { SignupComponent } from './pages/signup/signup.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import {FirebaseService} from "./services/database/firebase";
+import {FirebaseMockService} from "./services/database/firebase-mock";
+import {HomeComponent} from "./pages/home/home.component";
 
 @NgModule({
   declarations: [
@@ -23,6 +26,7 @@ import { DashboardComponent } from './pages/dashboard/dashboard.component';
     LoginComponent,
     SignupComponent,
     DashboardComponent,
+    HomeComponent,
     // ... other components
   ],
   imports: [

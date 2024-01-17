@@ -1,6 +1,9 @@
 <!-- dashboard.component.html -->
 
-<div>
-    <h2>{{ welcomeMessage }}</h2>
-    <!-- Add other content or features as needed -->
+<div *ngIf="userData">
+    <h2>Welcome, {{ currentUserEmail }}!</h2>
+    <p>Your Favorite Pools:</p>
+    <ul>
+        <li *ngFor="let pool of userData.email">{{ pool }}</li>
+    </ul>
 </div>

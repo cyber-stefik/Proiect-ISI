@@ -33,6 +33,7 @@ import Expand from '@arcgis/core/widgets/Expand';
 
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Graphic from '@arcgis/core/Graphic';
+import Search from '@arcgis/core/widgets/Search';
 
 
 import FeatureLayer from '@arcgis/core/layers/FeatureLayer';
@@ -86,6 +87,9 @@ export class EsriMapComponent implements OnInit, OnDestroy {
     isConnected: boolean = false;
     subscriptionList: Subscription;
     subscriptionObj: Subscription;
+    routeGraphicsLayer: __esri.GraphicsLayer;
+    trailheadGraphicsLayer: esri.GraphicsLayer;
+    trailheadCoordinates: number[][] = [];
 
     constructor(
       private fbs: FirebaseService
@@ -95,24 +99,17 @@ export class EsriMapComponent implements OnInit, OnDestroy {
     //constructor() { }
 
     clearRouteAndGraphics() {
-        if (this.view) {
-            this.view.graphics.removeAll(); // Remove route graphics
+      if (this.view) {
+        // Clear route graphics
+        this.routeGraphicsLayer.removeAll();
+        this.view.graphics.removeAll();
 
-            // Remove directions UI
-            const directionsPanel = document.querySelector('.esri-directions__scroller');
-            if (directionsPanel) {
-                directionsPanel.remove();
-            }
+        // Remove directions UI
+        const directionsPanel = document.querySelector('.esri-directions__scroller');
+        if (directionsPanel) {
+          directionsPanel.remove();
         }
-    }
-
-    centerMap(location: number[]) {
-        if (this.view) {
-            this.view.goTo({
-                center: location,
-                zoom: 15 // Adjust the zoom level as needed
-            });
-        }
+      }
     }
 
     async initializeMap() {
@@ -125,8 +122,12 @@ export class EsriMapComponent implements OnInit, OnDestroy {
             Config.apiKey = "AAPK92446b830c7b4d8eaade779011d11193ZiRqrgT8ysmXzMMG76BiXxIwCon7RUr7JLJRGf3k0Q9ACr8dRE7uu_9QOeUit1bS";
 
             this.map = new WebMap(mapProperties);
+            this.routeGraphicsLayer = new GraphicsLayer();
+            this.trailheadGraphicsLayer = new GraphicsLayer();
+            this.map.addMany([this.trailheadGraphicsLayer, this.routeGraphicsLayer]);
 
-            // Use the WebMap properties to set the center and zoom level for Bucharest
+
+          // Use the WebMap properties to set the center and zoom level for Bucharest
             const mapViewProperties = {
                 container: this.mapViewEl.nativeElement,
                 center: [26.1025, 44.4268], // Bucharest coordinates
@@ -134,7 +135,7 @@ export class EsriMapComponent implements OnInit, OnDestroy {
                 map: this.map
             };
 
-            this.addFeatureLayers();
+            // this.addFeatureLayers();
             this.view = new MapView(mapViewProperties);
 
             // Fires `pointer-move` event when user clicks on "Shift"
@@ -165,7 +166,23 @@ export class EsriMapComponent implements OnInit, OnDestroy {
                 }),
                 useHeadingEnabled: false
             });
+            const track = new Track({
+              view: this.view,
+              graphic: new Graphic({
+                symbol: {
+                  type: "simple-marker",
+                  size: "12px",
+                  color: "green",
+                  outline: {
+                    color: "#efefef",
+                    width: "1.5px"
+                  }
+                } as any  // Use 'as any' to handle the type issue
+              }),
+              useHeadingEnabled: false
+            });
             this.view.ui.add(locate, "top-left");
+            this.view.ui.add(track, "top-left");
             this.fbs.connectToDatabase();
             this.fbs.getData().subscribe((items: Location[]) =>{
                 console.log("got new items from list: ", items);
@@ -181,142 +198,130 @@ export class EsriMapComponent implements OnInit, OnDestroy {
         }
     }
 
-    findPlaces(category: string, pt: number[]) {
-        const geocodingServiceUrl = "http://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer";
-        console.log("findPlaces: point clicked: ", pt[0], pt[1]);
-        const params = {
-            categories: category,
-            location: pt,  // Paris (2.34602,48.85880)
-            outFields: ["PlaceName","Place_addr"]
-        } as any
-
-        locator.addressToLocations(geocodingServiceUrl, params).then((results)=> {
-            this.showResults(results);
-        });
-
-    }
-
-  addTrailhead(location: Location) {
+    addTrailhead(location: Location) {
         const point = new Point({
-          longitude: location.coordinates[0].longitude,
-          latitude: location.coordinates[0].latitude
+            longitude: location.coordinates[0].longitude,
+            latitude: location.coordinates[0].latitude
         });
+
+        // Store the trailhead coordinates
+        const trailheadCoord = [point.longitude, point.latitude];
+        this.trailheadCoordinates.push(trailheadCoord);
+
+        const ratingsMean = this.calculateRatingsMean(location.ratings);
 
         const trailheadGraphic = new Graphic({
-          geometry: point,
-          symbol:  {
-            type: "picture-marker",
-            size: "12px",
-            url: "https://static.arcgis.com/icons/places/Swimming_Pool_15.svg",
-            width: "18px",
-            height: "18px"
-          } as any,
-          attributes: {
-            Name: location.id // You can customize this based on your trailhead data structure
-          },
-          popupTemplate: {
-            title: location.id,
-            content: "Trailhead located at Lat: {latitude}, Lon: {longitude}"
-          }
-        });
-        this.view.graphics.add(trailheadGraphic);
-        //this.graphicsLayer.add(trailheadGraphic);
-  }
-
-    showResults(results: any[]) {
-        this.view.popup.close();
-        this.view.graphics.removeAll();
-        console.log("esri-map.component - showResults: " + results.toString());
-        results.forEach((result)=>{
-            this.view.graphics.add(
-                new Graphic({
-                    attributes: result.attributes,
-                    geometry: result.location,
-                    symbol: {
-                        type: "simple-marker",
-                        color: "yellow",
-                        size: "30px",
-                        outline: {
-                            color: "#ffffff",
-                            width: "10px"
-                        }
-                    }as any,
-                    popupTemplate: {
-                        title: "{PlaceName}",
-                        content: "{Place_addr}" + "PULICICA" + "<br><br>" + result.location.x.toFixed(5) + "," + result.location.y.toFixed(5)
+            geometry: point,
+            symbol: {
+                type: "picture-marker",
+                size: "12px",
+                url: "https://static.arcgis.com/icons/places/Swimming_Pool_15.svg",
+                width: "18px",
+                height: "18px"
+            } as any,
+            attributes: {
+                Name: location.id // You can customize this based on your trailhead data structure
+            },
+            popupTemplate: {
+                title: location.id,
+                content: [
+                    {
+                        type: "text",
+                        text: location.description
+                    },
+                    {
+                        type: "text",
+                        text: "Orar: " + location.schedule[0] + " - " + location.schedule[1] // Add this line for displaying the schedule
+                    },
+                    {
+                      type: "text",
+                      text: "Rating: " + (ratingsMean || 'No ratings yet')
                     }
-                }));
+                ]
+
+            }
         });
-        if (results.length) {
-            const g = this.view.graphics.getItemAt(0);
-            this.view.openPopup({
-                features: [g],
-                location: g.geometry
-            });
-        }
+        this.trailheadGraphicsLayer.add(trailheadGraphic);
     }
 
+    calculateRatingsMean(ratings: number[]): string {
+        if (ratings.length === 0) {
+            return 'No ratings yet';
+        }
 
+        const sum = ratings.reduce((acc, rating) => acc + rating, 0);
+        const mean = sum / ratings.length;
 
+        // Assuming you want to display the mean rounded to one decimal place
+        return mean.toFixed(1);
+    }
 
-
-    addFeatureLayers() {
-        // Trailheads feature layer (points)
-        var trailheadsLayer: esri.FeatureLayer = new FeatureLayer({
-            url:
-                "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trailheads/FeatureServer/0"
-        });
-
-        this.map.add(trailheadsLayer);
-
-        // Trails feature layer (lines)
-        var trailsLayer: esri.FeatureLayer = new FeatureLayer({
-            url:
-                "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trails/FeatureServer/0"
-        });
-
-        this.map.add(trailsLayer, 0);
-
-        // Parks and open spaces (polygons)
-        var parksLayer: esri.FeatureLayer = new FeatureLayer({
-            url:
-                "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Parks_and_Open_Space/FeatureServer/0"
-        });
-
-        this.map.add(parksLayer, 0);
-
-        console.log("feature layers added");
+    areCoordinatesEqual(coord1: number[], coord2: number[]): boolean {
+        // Check if the coordinates are approximately equal (adjust the tolerance as needed)
+        const tolerance = 0.001;
+        return Math.abs(coord1[0] - coord2[0]) < tolerance && Math.abs(coord1[1] - coord2[1]) < tolerance;
     }
 
     addRouter() {
         this.view.on("click", (event) => {
             console.log("point clicked: ", event.mapPoint.latitude, event.mapPoint.longitude);
-            if (this.view.graphics.length === 0) {
-                this.addGraphic("origin", event.mapPoint);
-            } else if (this.view.graphics.length === 1) {
-                this.addGraphic("destination", event.mapPoint);
-                this.getRoute(); // Call the route service
+
+            // Check if the clicked position is close to any trailhead
+            const clickedPosition = [event.mapPoint.longitude, event.mapPoint.latitude];
+            const isDifferentFromTrailheads = !this.trailheadCoordinates.some(coord => this.areCoordinatesEqual(coord, clickedPosition));
+
+            // Clear only the route graphics
+            this.clearRouteGraphics();
+
+            if (isDifferentFromTrailheads) {
+                if (this.view.graphics.length === 0) {
+                    this.addGraphic("origin", event.mapPoint);
+                } else if (this.view.graphics.length === 1) {
+                    this.addGraphic("destination", event.mapPoint);
+                    this.getRoute(); // Call the route service
+                } else {
+                    this.clearRouteAndGraphics(); // Clear only the route graphics
+                    this.addGraphic("origin", event.mapPoint);
+                }
             } else {
-                this.clearRouteAndGraphics(); // Clear route and graphics
-                this.addGraphic("origin", event.mapPoint);
+                console.log("Clicked position is close to a trailhead. Ignoring.");
             }
         });
     }
 
 
+    clearRouteGraphics() {
+        // Clear only the graphics related to the route from the routeGraphicsLayer
+        this.routeGraphicsLayer.removeAll();
+
+        // Remove directions UI
+        const directionsPanel = document.querySelector('.esri-directions__scroller');
+        if (directionsPanel) {
+            directionsPanel.remove();
+        }
+    }
+
     addGraphic(type: any, point: any) {
-    const graphic = new Graphic({
-      symbol: {
-        type: "simple-marker",
-        color: (type === "origin") ? "white" : "black",
-        size: "8px"
-      } as any,
-      geometry: point
-    });
-    this.view.graphics.add(graphic);
-  }
+        const graphic = new Graphic({
+            symbol: {
+                type: "simple-marker",
+                color: (type === "origin") ? "white" : "black",
+                size: "8px"
+            } as any,
+            geometry: point
+        });
+
+        // Add the graphic to the appropriate layer
+        if (type === "origin" || type === "destination") {
+            this.view.graphics.add(graphic);
+        }
+    }
 
     getRoute() {
+        console.log("Before getRoute - Trailhead Graphics:", this.trailheadGraphicsLayer.graphics.length);
+        console.log("Before getRoute - Route Graphics:", this.routeGraphicsLayer.graphics.length);
+        this.routeGraphicsLayer.removeAll();
+        console.log("After clearing route graphics:", this.routeGraphicsLayer.graphics.length);
         const routeParams = new RouteParameters({
             stops: new FeatureSet({
                 features: this.view.graphics.toArray()
@@ -325,14 +330,17 @@ export class EsriMapComponent implements OnInit, OnDestroy {
         });
 
         route.solve(this.routeUrl, routeParams).then((data: any) => {
+            this.routeGraphicsLayer.removeAll();
             for (let result of data.routeResults) {
                 result.route.symbol = {
                     type: "simple-line",
                     color: [5, 150, 255],
                     width: 3
                 };
-                this.view.graphics.add(result.route);
+                this.routeGraphicsLayer.add(result.route);
             }
+
+            console.log("After adding route graphics:", this.routeGraphicsLayer.graphics.length);
 
             // Display directions
             if (data.routeResults.length > 0) {
@@ -387,6 +395,15 @@ export class EsriMapComponent implements OnInit, OnDestroy {
 
             this.addRouter(); // Add this line to initialize routing
             this.runTimer();
+
+            const searchWidget = new Search({
+                view: this.view
+            });
+
+            // Add the search widget to the top right corner of the view
+            this.view.ui.add(searchWidget, {
+                position: "bottom-left"
+            });
         });
     }
 
@@ -394,6 +411,9 @@ export class EsriMapComponent implements OnInit, OnDestroy {
         if (this.view) {
             // destroy the map view
             this.view.container = null;
+        }
+        if (this.routeGraphicsLayer) {
+          this.map.remove(this.routeGraphicsLayer);
         }
         this.stopTimer();
     }

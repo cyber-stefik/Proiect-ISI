@@ -1,5 +1,30 @@
-<div class="title">
-    <h1>
-        Welcome to ArcGIS API for JavaScript
-    </h1>
+<!-- home.component.html -->
+<div *ngFor="let location of locations" class="location-container">
+  <div id="rcorners1">
+    <div>
+      <h3>{{ location.id }}</h3>
+      <!-- Add to Favorites button -->
+      <button (click)="onAddToFavoritesClick(location.id)" class="button-3">Add to Favorites</button>
+    </div>
+    <h4>{{ location.address }}</h4>
+
+    <!-- Display Feedback after submission -->
+    <div *ngIf="location.feedback.length > 0">
+      <label>Feedback:</label>
+      <ul class="horizontal-feedback-list">
+        <li *ngFor="let feedback of location.feedback">{{ feedback }}</li>
+      </ul>
+    </div>
+
+    <!-- Rating Input -->
+    <label for="ratingInput">Rate this location:</label>
+    <input type="number" id="ratingInput" [(ngModel)]="location.newRating" min="1" required />
+    <button (click)="addRating(location.id, location.newRating)" class="button-3" [disabled]="!isValidRating(location.newRating)">Submit Rating</button>
+    <br />
+
+    <!-- Feedback Input -->
+    <label for="feedbackInput">Give feedback:</label>
+    <input type="text" id="feedbackInput" [(ngModel)]="location.newFeedback" />
+    <button (click)="addFeedback(location.id, location.newFeedback)" class="button-3">Submit Feedback</button>
+  </div>
 </div>
